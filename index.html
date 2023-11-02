@@ -6,33 +6,74 @@
 <title>Audio Capture and Output</title>
 </head>
 <body>
+<label for="inputDevices">Microphone: </label>
+<select id="inputDevices"></select>
+<br>
+<label for="outputDevices">Speaker: </label>
+<select id="outputDevices"></select>
+<br>
 <button id="startButton">Start</button>
 <script>
-  // This function will be called when the "Start" button is clicked
-  async function startAudio() {
-    try {
-      // Request permission to access the microphone
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  document.addEventListener('DOMContentLoaded', async () => {
+    const inputDevicesSelect = document.getElementById('inputDevices');
+    const outputDevicesSelect = document.getElementById('outputDevices');
+    const startButton = document.getElementById('startButton');
 
-      // Create an audio context
-      const audioContext = new AudioContext();
+    // Get the list of input and output devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+    const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
 
-      // Create a source node from the microphone input
-      const source = audioContext.createMediaStreamSource(stream);
+    // Populate the dropdown menus with the available devices
+    audioInputDevices.forEach(device => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.text = device.label || `Microphone (${audioInputDevices.indexOf(device) + 1})`;
+      inputDevicesSelect.appendChild(option);
+    });
+    audioOutputDevices.forEach(device => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.text = device.label || `Speaker (${audioOutputDevices.indexOf(device) + 1})`;
+      outputDevicesSelect.appendChild(option);
+    });
 
-      // Connect the source node to the audio context's destination (the speakers)
-      source.connect(audioContext.destination);
+    // This function will be called when the "Start" button is clicked
+    startButton.addEventListener('click', async () => {
+      try {
+        // Get the selected input device
+        const inputDeviceId = inputDevicesSelect.value;
 
-      // Update the button text to indicate that the audio is playing
-      document.getElementById('startButton').innerText = 'Playing...';
-    } catch (error) {
-      // Log any errors that occur
-      console.error('Error accessing the microphone:', error);
-    }
-  }
+        // Request permission to access the selected microphone
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: inputDeviceId ? { exact: inputDeviceId } : undefined }
+        });
 
-  // Add a click event listener to the "Start" button
-  document.getElementById('startButton').addEventListener('click', startAudio);
+        // Create an audio context
+        const audioContext = new AudioContext();
+
+        // Create a source node from the microphone input
+        const source = audioContext.createMediaStreamSource(stream);
+
+        // Get the selected output device
+        const outputDeviceId = outputDevicesSelect.value;
+
+        // Attempt to set the output device (this may not work in all browsers)
+        if (outputDeviceId && typeof audioContext.destination.sinkId !== 'undefined') {
+          await audioContext.destination.setSinkId(outputDeviceId);
+        }
+
+        // Connect the source node to the audio context's destination (the speakers)
+        source.connect(audioContext.destination);
+
+        // Update the button text to indicate that the audio is playing
+        startButton.innerText = 'Playing...';
+      } catch (error) {
+        // Log any errors that occur
+        console.error('Error accessing the microphone:', error);
+      }
+    });
+  });
 </script>
 </body>
 </html>
