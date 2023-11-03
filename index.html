@@ -4,20 +4,79 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Audio Capture and Output</title>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #333;
+  }
+  select, button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+  }
+  button {
+    background-color: #5cb85c;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  button#stopButton {
+    background-color: #d9534f;
+  }
+</style>
 </head>
 <body>
-<label for="inputDevices">Microphone: </label>
-<select id="inputDevices"></select>
-<br>
-<label for="outputDevices">Speaker: </label>
-<select id="outputDevices"></select>
-<br>
-<button id="startButton">Start</button>
+<div class="container">
+
+  <h1>🎤</h1>
+
+  <button id="startButton">Start</button>
+  <button id="stopButton" disabled>Stop</button>
+
+  <label for="inputDevices">Microphone:</label>
+  <select id="inputDevices"></select>
+  
+  <label for="outputDevices">Speaker:</label>
+  <select id="outputDevices"></select>
+</div>
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     const inputDevicesSelect = document.getElementById('inputDevices');
     const outputDevicesSelect = document.getElementById('outputDevices');
     const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+
+    let audioContext;
+    let source;
 
     // Get the list of input and output devices
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -38,41 +97,48 @@
       outputDevicesSelect.appendChild(option);
     });
 
-    // This function will be called when the "Start" button is clicked
-    startButton.addEventListener('click', async () => {
+    // Function to start audio capture and output
+    async function startAudio() {
       try {
-        // Get the selected input device
         const inputDeviceId = inputDevicesSelect.value;
-
-        // Request permission to access the selected microphone
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: inputDeviceId ? { exact: inputDeviceId } : undefined }
         });
 
-        // Create an audio context
-        const audioContext = new AudioContext();
-
-        // Create a source node from the microphone input
-        const source = audioContext.createMediaStreamSource(stream);
-
-        // Get the selected output device
+        audioContext = new AudioContext();
+        source = audioContext.createMediaStreamSource(stream);
         const outputDeviceId = outputDevicesSelect.value;
 
-        // Attempt to set the output device (this may not work in all browsers)
         if (outputDeviceId && typeof audioContext.destination.sinkId !== 'undefined') {
           await audioContext.destination.setSinkId(outputDeviceId);
         }
 
-        // Connect the source node to the audio context's destination (the speakers)
         source.connect(audioContext.destination);
-
-        // Update the button text to indicate that the audio is playing
+        startButton.disabled = true;
+        stopButton.disabled = false;
         startButton.innerText = 'Playing...';
       } catch (error) {
-        // Log any errors that occur
         console.error('Error accessing the microphone:', error);
       }
-    });
+    }
+
+    // Function to stop audio capture and output
+    function stopAudio() {
+      if (source) {
+        source.disconnect(audioContext.destination);
+        source = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      startButton.innerText = 'Start';
+    }
+
+    startButton.addEventListener('click', startAudio);
+    stopButton.addEventListener('click', stopAudio);
   });
 </script>
 </body>
